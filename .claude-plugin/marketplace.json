@@ -1,0 +1,15 @@
+{
+  "name": "pacekit",
+  "description": "Pacekit, a Claude Code status line that tracks your pace against your usage limits.",
+  "owner": {
+    "name": "Jason Eric Siegel",
+    "url": "https://github.com/jasonericsiegel"
+  },
+  "plugins": [
+    {
+      "name": "pacekit",
+      "source": "./",
+      "description": "A Claude Code status line that shows whether you'll run out of your 5-hour or weekly limit before it resets, how full your context is, and how long the prompt cache stays warm."
+    }
+  ]
+}

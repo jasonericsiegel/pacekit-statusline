@@ -1,0 +1,46 @@
+name: Report a problem
+description: Pacekit showed something wrong, looked broken, or didn't install.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you expected to see and what you saw instead. A screenshot of the status line helps most.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Pacekit version
+      description: The version at the top of CHANGELOG.md, or the plugin version in /plugin.
+      placeholder: "1.0.0"
+  - type: input
+    id: claude
+    attributes:
+      label: Claude Code version
+      description: Run `claude --version`.
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows (Git Bash)
+        - Windows (WSL)
+        - Something else
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal and font
+      description: For example Ghostty with JetBrains Mono, iTerm2, Windows Terminal, the VS Code terminal.
+  - type: dropdown
+    id: plan
+    attributes:
+      label: Plan
+      options:
+        - Pro, Max or another subscription
+        - Pay-as-you-go API key
+        - Bedrock, Vertex or a gateway
+        - Not sure

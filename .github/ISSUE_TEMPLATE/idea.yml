@@ -1,0 +1,11 @@
+name: Suggest an idea
+description: Something Pacekit should show, or a way to make it easier to read.
+labels: ["idea"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What would you like to see, and when would it help you?
+    validations:
+      required: true

@@ -1,0 +1,2 @@
+# Keep shell scripts on LF line endings, even in a Windows clone, so bash can run them.
+*.sh text eol=lf
