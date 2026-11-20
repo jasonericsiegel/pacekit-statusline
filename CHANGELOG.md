@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0 (2026-11-20)
+
+### Added
+
+- Plugin installs now update themselves. Once Claude Code has the new plugin version, Pacekit installs its status line at the start of your next session, so you no longer run `/pacekit:setup update`. It replaces only the copy `/pacekit:setup` installed, never goes back a version, and leaves your settings alone. To keep the version you have, create an empty file at `~/.claude/pacekit-no-auto-update`.
+
+### Fixed
+
+- Chinese, Japanese and Korean characters now count as two columns, the width terminals draw them, so a title, folder or branch name in those languages fits a narrow pane instead of running past its edge. Two columns go to Unicode's East Asian Wide and Fullwidth characters: CJK ideographs and radicals, Hiragana, Katakana, Bopomofo, Hangul, Yi, CJK punctuation and vertical forms, and fullwidth letters and signs. Emoji in names, other than the ones Pacekit draws itself, still count as one.
+
 ## 1.0.0 (2026-11-17)
 
 Pacekit's own repository and first release as a plugin. Everything below changed since 0.2.

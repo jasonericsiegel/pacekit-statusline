@@ -52,7 +52,7 @@ With an API key there are no limit windows, so the session's cost takes their pl
 
 ### A notice when there's a new version
 
-Once a day, Pacekit checks GitHub for a newer version. When there is one, line 1 says so until the session's title arrives, with the command that updates it.
+Once a day, Pacekit checks GitHub for a newer version. When there is one, line 1 says so until the session's title arrives, with the command that updates it. If you installed the plugin, each new version installs itself when a session starts.
 
 ![Line 1 reading Pacekit 1.1.0 is out, run /pacekit:setup update, in blue, above the usual context, limit and git lines](screenshots/update.png)
 
@@ -135,7 +135,7 @@ In Claude Code, run:
 
 On Claude Code older than 2.1.275, add the marketplace first with `/plugin marketplace add jasonericsiegel/pacekit-statusline`, then run `/plugin install pacekit@pacekit`.
 
-When line 1 says a new version is out, run `/pacekit:setup update`.
+Claude Code doesn't update plugins from this marketplace on its own until you turn on auto-update for it, under `/plugin` → Marketplaces. With it on, Pacekit installs each new version at the start of your next session. Without it, run `/pacekit:setup update` when line 1 says a new version is out.
 
 </details>
 
@@ -226,6 +226,7 @@ Pacekit has no config file. A few switches cover the rare cases:
 | Fix lines that end in `…` after a Claude Code update | Set `PACEKIT_MARGIN` to the number of columns Claude Code keeps beside the status line (4 by default) |
 | Stop Pacekit leaving usage files for other tools | Set `PACEKIT_STAMPS=off` |
 | Turn off the daily check for a new version | Set `PACEKIT_UPDATE_CHECK=off` |
+| Keep the plugin from installing new versions by itself | Create an empty file at `~/.claude/pacekit-no-auto-update` |
 
 Set a variable by putting it in front of the command in `settings.json`, for example `"command": "PACEKIT_ICONS=emoji ~/.claude/pacekit/statusline.sh"`. Changes show on the next redraw.
 
@@ -291,6 +292,8 @@ Claude Code passes the terminal's width with each redraw (version 2.1.153 and la
 6. The worktree and branch names, never below 3 letters.
 
 On a wide terminal, long names show in full.
+
+Chinese, Japanese and Korean characters count as two columns each, the width terminals draw them.
 
 A resize alone doesn't make Claude Code redraw. The line catches up on the next message or on the next `refreshInterval` tick.
 

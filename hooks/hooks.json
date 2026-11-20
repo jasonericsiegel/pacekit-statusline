@@ -1,0 +1,16 @@
+{
+  "description": "Installs the status line script that ships with each new Pacekit version at the start of a session, so plugin users never rerun /pacekit:setup update. PACEKIT_AUTO_UPDATE=off, or an empty ~/.claude/pacekit-no-auto-update file, turns it off.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

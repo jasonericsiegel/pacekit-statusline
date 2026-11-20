@@ -32,7 +32,7 @@ unset LC_ALL
 export LC_CTYPE="$PK_CTYPE" LC_NUMERIC=C
 
 # Matches .claude-plugin/plugin.json and the CHANGELOG (tests and the release check enforce it).
-PACEKIT_VERSION="1.0.0"
+PACEKIT_VERSION="1.1.0"
 
 CLAUDE_DIR=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 
@@ -95,14 +95,92 @@ SEP_NARROW="  "
 # Display width in terminal cells. Pure bash (no fork — the ladders call this often): strip the
 # SGR escapes, count characters in a UTF-8 locale (a C locale would count bytes, and every ▮ is
 # three), then add one cell for each double-width emoji (🔥 👤 🆕; ❄️ already counts two, its
-# variation selector included). Undercounting those two made narrow lines overflow by a cell.
+# variation selector included) and one for each wide East Asian character. Undercounting either
+# made narrow lines overflow.
+#
+# Wide characters (Unicode East Asian Wide and Fullwidth) counted as two cells, by code point:
+#   U+1100-115F  Hangul Jamo initial consonants
+#   U+2E80-2FFF  CJK and Kangxi radicals, ideographic description characters
+#   U+3000-4DBF  CJK punctuation, Hiragana, Katakana, Bopomofo, Hangul compatibility Jamo,
+#                enclosed CJK, CJK compatibility, CJK Extension A
+#   U+4E00-9FFF  CJK Unified Ideographs
+#   U+A000-A4C6  Yi syllables and radicals
+#   U+AC00-D7A3  Hangul syllables
+#   U+F900-FAFF  CJK Compatibility Ideographs
+#   U+FE10-FE19, U+FE30-FE6B  vertical, compatibility and small forms
+#   U+FF00-FF60, U+FFE0-FFE6  fullwidth forms
+#   U+20000-3FFFF  CJK Extension B onward (planes 2 and 3)
+# They are matched as UTF-8 bytes with LC_CTYPE=C for a moment, a few pattern removals per
+# string, so a long name costs no more than a short one. Bash 3.2 bracket ranges over high bytes
+# misfire ([\xe5-\xe9] matched \xe3 and \xf0), so every bracket lists its bytes outright. Other emoji in names still count one cell.
+# With no UTF-8 locale installed (PK_CTYPE=C) everything counts bytes: a wide character counts
+# three, so lines over-shorten rather than overflow, and cuts can split a character (as before).
 PK_ESC_RE=$'\033\[[0-9;]*m'
-vis_width() {
+PK_X=$'\xe1'; PK_E2=$'\xe2'; PK_E3=$'\xe3'; PK_E4=$'\xe4'; PK_EA=$'\xea'; PK_ED=$'\xed'; PK_EF=$'\xef'; PK_F0=$'\xf0'
+PK_W_85=$'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f'                       # U+1140-115F
+PK_W_E2=$'\xba\xbb\xbc\xbd\xbe\xbf'                       # U+2E80-2FFF
+PK_W_E4=$'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6'                       # U+4000-4DBF (U+4DC0-4DFF hexagrams are narrow)
+PK_W_E4+=$'\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf'                      # U+4E00-4FFF
+PK_W_E5=$'\xe5\xe6\xe7\xe8\xe9'                       # U+5000-9FFF
+PK_W_EA=$'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92'                       # U+A000-A4BF
+PK_W_93=$'\x80\x81\x82\x83\x84\x85\x86'                       # U+A4C0-A4C6
+PK_W_EA+=$'\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf'                      # U+AC00-AFFF
+PK_W_EB=$'\xeb\xec'                       # U+B000-CFFF
+PK_W_ED=$'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d'                       # U+D000-D77F
+PK_W_9E=$'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3'                       # U+D780-D7A3
+PK_W_EF=$'\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab'                       # U+F900-FAFF
+PK_W_B8=$'\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99'$'\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf'   # U+FE10-FE19, U+FE30-FE3F
+PK_W_B9=$'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab'                       # U+FE40-FE6B
+PK_W_BD=$'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0'                       # U+FF40-FF60
+PK_W_BF=$'\xa0\xa1\xa2\xa3\xa4\xa5\xa6'                       # U+FFE0-FFE6
+PK_W_F0=$'\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf'                       # U+20000-3FFFF
+PK_W_LEADS=$'\xe1\xe2\xe3\xe4\xea\xed\xef\xf0'$PK_W_E5$PK_W_EB   # a wide character starts with one of these
+PK_W_ANY=$'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf'
+# Sets PK_W to the display width of $1 (no subshell; vis_width prints it).
+pk_width() {
     local s=$1
     while [[ $s =~ $PK_ESC_RE ]]; do s=${s//"${BASH_REMATCH[0]}"/}; done
     local narrow=${s//🔥/}; narrow=${narrow//👤/}; narrow=${narrow//🆕/}   # one at a time: bash 3.2 brackets match bytes
-    printf '%s' $(( ${#s} + ${#s} - ${#narrow} ))
+    local chars=${#s}
+    PK_W=$(( chars + chars - ${#narrow} ))
+    [ "$PK_CTYPE" = C ] && return
+    LC_CTYPE=C
+    local bytes=${#s}
+    if [ "$bytes" -ne "$chars" ] && [[ $s == *[$PK_W_LEADS]* ]]; then
+        local r=${s//${PK_F0}[$PK_W_F0]??/}
+        local four=$(( (bytes - ${#r}) / 4 )) left=${#r}
+        r=${r//$PK_X$'\x84'?/};           r=${r//$PK_X$'\x85'[$PK_W_85]/}
+        r=${r//${PK_E2}[$PK_W_E2]?/};       r=${r//$PK_E3??/}
+        r=${r//${PK_E4}[$PK_W_E4]?/};       r=${r//[$PK_W_E5]??/}
+        r=${r//${PK_EA}[$PK_W_EA]?/};       r=${r//$PK_EA$'\x93'[$PK_W_93]/}
+        r=${r//[$PK_W_EB]??/}
+        r=${r//${PK_ED}[$PK_W_ED]?/};       r=${r//$PK_ED$'\x9e'[$PK_W_9E]/}
+        r=${r//${PK_EF}[$PK_W_EF]?/}
+        r=${r//$PK_EF$'\xb8'[$PK_W_B8]/}; r=${r//$PK_EF$'\xb9'[$PK_W_B9]/}
+        r=${r//$PK_EF$'\xbc'[$PK_W_ANY]/}; r=${r//$PK_EF$'\xbd'[$PK_W_BD]/}
+        r=${r//$PK_EF$'\xbf'[$PK_W_BF]/}
+        PK_W=$(( PK_W + four + (left - ${#r}) / 3 ))
+    fi
+    LC_CTYPE=$PK_CTYPE
 }
+vis_width() { pk_width "$1"; printf '%s' "$PK_W"; }
+# Sets PK_CUT to the longest leading part of $1 that fits in $2 cells. A cut that would land
+# between the two cells of a wide character drops that character instead of overshooting.
+pk_cut() {
+    local s=$1 max=$2 t
+    pk_width "$s"; if [ "$PK_W" -le "$max" ]; then PK_CUT=$s; return; fi
+    t=$max; [ "$t" -gt "${#s}" ] && t=${#s}
+    pk_width "${s:0:$t}"
+    while [ "$PK_W" -gt "$max" ]; do                 # each character dropped frees at least one cell
+        t=$(( t - (PK_W - max) )); [ "$t" -lt 0 ] && t=0
+        pk_width "${s:0:$t}"
+    done
+    while [ "$t" -lt "${#s}" ]; do                   # then take back any narrow ones that still fit
+        pk_width "${s:0:$((t + 1))}"; [ "$PK_W" -le "$max" ] || break; t=$((t + 1))
+    done
+    PK_CUT=${s:0:$t}
+}
+# end of width helpers
 # Claude Code draws the status row 2 cells in and stops 2 short of the right edge, clipping anything
 # longer with … (measured on v2.1.301 with a digit ruler: COLUMNS=32 showed 28 cells). A margin of 2
 # let full-budget lines lose their tail to that …. The margin is configurable if a release moves it.
@@ -436,13 +514,11 @@ subdir_at_level() {
     printf '…%s' "$out"
 }
 
-# Cap a name at $2 characters (default 24) with a trailing ellipsis. 24 is the standing cap; the
+# Cap a name at $2 cells (default 24) with a trailing ellipsis. 24 is the standing cap; the
 # line-3 ladder lifts it on a wide terminal and tightens it on a narrow one.
 cap_name() {
-    local name=$1 max=${2:-24}
-    if [ ${#name} -gt $max ]; then printf "%s…" "${name:0:$max}"
-    else printf "%s" "$name"
-    fi
+    pk_cut "$1" "${2:-24}"
+    if [ "$PK_CUT" = "$1" ]; then printf '%s' "$1"; else printf '%s…' "$PK_CUT"; fi
 }
 
 # Single line: context | 5h rate | 7d rate | model + branch
@@ -630,10 +706,10 @@ fit_git() {
     fi
     # Share the remainder in display cells (a capped name is its chars + 1 for the …): shorten the
     # longer name first, one cell at a time, to a floor of 4 cells (3 chars + …).
-    local over=$(( $(vis_width "$seg") - budget ))
-    local wt=${#WORKTREE_NAME} br=0
+    pk_width "$seg"; local over=$(( PK_W - budget ))
+    pk_width "$WORKTREE_NAME"; local wt=$PK_W wt_full=$PK_W br=0 br_full=0
     [ "$wt" -gt 24 ] && wt=25
-    if [ "$SHOW_BRANCH" -eq 1 ]; then local b=${BRANCH##*/}; br=${#b}; [ "$br" -gt 24 ] && br=25; fi
+    if [ "$SHOW_BRANCH" -eq 1 ]; then pk_width "${BRANCH##*/}"; br=$PK_W; br_full=$PK_W; [ "$br" -gt 24 ] && br=25; fi
     while [ "$over" -gt 0 ]; do
         if [ "$br" -ge "$wt" ] && [ "$br" -gt 4 ]; then br=$((br-1))
         elif [ "$wt" -gt 4 ]; then wt=$((wt-1))
@@ -641,9 +717,9 @@ fit_git() {
         else break; fi
         over=$((over-1))
     done
-    # A name cut to n cells shows n-1 chars + …; one already within its cells is left alone.
-    [ "$wt" -lt "${#WORKTREE_NAME}" ] && PK_G_WT=$((wt - 1))
-    [ "$SHOW_BRANCH" -eq 1 ] && [ "$br" -lt "${#b}" ] && PK_G_BR=$((br - 1))
+    # A name cut to n cells shows n-1 cells + …; one already within its cells is left alone.
+    [ "$wt" -lt "$wt_full" ] && PK_G_WT=$((wt - 1))
+    [ "$SHOW_BRANCH" -eq 1 ] && [ "$br" -lt "$br_full" ] && PK_G_BR=$((br - 1))
     FIT_CUT=1
     FIT_SEG=$(build_git "")
 }
@@ -843,7 +919,7 @@ fi
 # A title drawn elsewhere drops this line when the configured pacekit-hide-title flag exists.
 if [ -n "$SESSION_TITLE" ] && [ "$PK_BUDGET" -gt 0 ] && [ ! -e "$CLAUDE_DIR/pacekit-hide-title" ]; then
     _t=$SESSION_TITLE
-    if [ ${#_t} -gt "$PK_BUDGET" ]; then _t="${_t:0:$((PK_BUDGET - 1))}…"; fi
+    pk_width "$_t"; if [ "$PK_W" -gt "$PK_BUDGET" ]; then pk_cut "$_t" $((PK_BUDGET - 1)); _t="${PK_CUT}…"; fi
     printf '%s\n' "${BOLD}${FG_LIGHT}${_t}${RESET}"
 elif [ -n "$UPDATE_LINE" ]; then
     printf '%s\n' "${INFO}${UPDATE_LINE}${RESET}"
